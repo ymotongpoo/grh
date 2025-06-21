@@ -46,6 +46,11 @@ func TestRule_CompilePattern(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "fullwidth alphabet expected pattern",
+			rule: Rule{Expected: "Hello"},
+			wantErr: false,
+		},
+		{
 			name: "no pattern or expected",
 			rule: Rule{},
 			wantErr: true,
@@ -148,6 +153,36 @@ func TestRule_ReplaceString(t *testing.T) {
 			rule:     Rule{Expected: "（$1）", Pattern: "/\\(([^)]+)\\)/"},
 			input:    "これは(テスト)です",
 			expected: "これは（テスト）です",
+		},
+		{
+			name:     "fullwidth case insensitive - halfwidth lowercase",
+			rule:     Rule{Expected: "Hello"},
+			input:    "hello world",
+			expected: "Hello world",
+		},
+		{
+			name:     "fullwidth case insensitive - halfwidth uppercase",
+			rule:     Rule{Expected: "Hello"},
+			input:    "HELLO world",
+			expected: "Hello world",
+		},
+		{
+			name:     "fullwidth case insensitive - fullwidth lowercase",
+			rule:     Rule{Expected: "Hello"},
+			input:    "ｈｅｌｌｏ world",
+			expected: "Hello world",
+		},
+		{
+			name:     "fullwidth case insensitive - fullwidth uppercase",
+			rule:     Rule{Expected: "Hello"},
+			input:    "ＨＥＬＬＯ world",
+			expected: "Hello world",
+		},
+		{
+			name:     "fullwidth case insensitive - mixed case",
+			rule:     Rule{Expected: "Hello"},
+			input:    "ｈＥｌＬｏ world",
+			expected: "Hello world",
 		},
 	}
 

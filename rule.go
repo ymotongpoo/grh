@@ -96,11 +96,24 @@ func (r *Rule) generateCaseInsensitivePattern() string {
 	for _, char := range expected {
 		switch {
 		case (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z'):
-			// アルファベットの場合は大文字小文字全角半角のパターンを生成
+			// 半角アルファベットの場合は大文字小文字全角半角のパターンを生成
 			upper := strings.ToUpper(string(char))
 			lower := strings.ToLower(string(char))
-			// 全角文字への変換は簡略化（実際にはより複雑な変換が必要）
-			pattern.WriteString(fmt.Sprintf("[%s%s]", upper, lower))
+			
+			// 全角文字への変換
+			fullwidthUpper := r.toFullwidthAlphabet(upper)
+			fullwidthLower := r.toFullwidthAlphabet(lower)
+			
+			pattern.WriteString(fmt.Sprintf("[%s%s%s%s]", upper, lower, fullwidthUpper, fullwidthLower))
+		case (char >= 'Ａ' && char <= 'Ｚ') || (char >= 'ａ' && char <= 'ｚ'):
+			// 全角アルファベットの場合は大文字小文字半角全角のパターンを生成
+			halfwidthChar := r.toHalfwidthAlphabet(string(char))
+			upper := strings.ToUpper(halfwidthChar)
+			lower := strings.ToLower(halfwidthChar)
+			fullwidthUpper := r.toFullwidthAlphabet(upper)
+			fullwidthLower := r.toFullwidthAlphabet(lower)
+			
+			pattern.WriteString(fmt.Sprintf("[%s%s%s%s]", upper, lower, fullwidthUpper, fullwidthLower))
 		default:
 			// その他の文字はそのまま（エスケープが必要な場合は対応）
 			pattern.WriteString(regexp.QuoteMeta(string(char)))
@@ -108,6 +121,40 @@ func (r *Rule) generateCaseInsensitivePattern() string {
 	}
 	
 	return pattern.String()
+}
+
+// toFullwidthAlphabet は半角アルファベットを全角アルファベットに変換
+func (r *Rule) toFullwidthAlphabet(s string) string {
+	var result strings.Builder
+	for _, char := range s {
+		if char >= 'A' && char <= 'Z' {
+			// A-Z を Ａ-Ｚ に変換
+			result.WriteRune('Ａ' + (char - 'A'))
+		} else if char >= 'a' && char <= 'z' {
+			// a-z を ａ-ｚ に変換
+			result.WriteRune('ａ' + (char - 'a'))
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
+}
+
+// toHalfwidthAlphabet は全角アルファベットを半角アルファベットに変換
+func (r *Rule) toHalfwidthAlphabet(s string) string {
+	var result strings.Builder
+	for _, char := range s {
+		if char >= 'Ａ' && char <= 'Ｚ' {
+			// Ａ-Ｚ を A-Z に変換
+			result.WriteRune('A' + (char - 'Ａ'))
+		} else if char >= 'ａ' && char <= 'ｚ' {
+			// ａ-ｚ を a-z に変換
+			result.WriteRune('a' + (char - 'ａ'))
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
 }
 
 // Replace はio.Readerから読み込んだテキストに対してルールを適用して置換を行う
