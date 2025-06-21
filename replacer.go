@@ -75,7 +75,7 @@ func (r *Replacer) Replace(reader io.Reader) (*ReplaceResult, error) {
 	return r.ReplaceString(string(content)), nil
 }
 
-// ReplaceString は文字列に対して全ルールを適用する
+// ReplaceString は文字列に対して全ルールを適用する（Hugoショートコード保護付き）
 func (r *Replacer) ReplaceString(text string) *ReplaceResult {
 	result := &ReplaceResult{
 		Original: text,
@@ -85,6 +85,17 @@ func (r *Replacer) ReplaceString(text string) *ReplaceResult {
 	}
 
 	r.logger.Info("Starting text replacement", "original_length", len(text), "rules_count", len(r.config.Rules))
+
+	// Hugoショートコードを保護
+	hugoProcessor := NewHugoProcessor()
+	protectedText, placeholders := hugoProcessor.PreserveShortcodes(text)
+	
+	if len(placeholders) > 0 {
+		r.logger.Info("Protected Hugo shortcodes", "shortcodes_count", len(placeholders))
+	}
+
+	// 保護されたテキストに対してルールを適用
+	workingText := protectedText
 
 	for i, rule := range r.config.Rules {
 		if rule.compiledRegexp == nil {
@@ -99,11 +110,11 @@ func (r *Replacer) ReplaceString(text string) *ReplaceResult {
 			r.logger.Debug("Rule has regexpMustEmpty, applying conditional logic", "rule_index", i)
 		}
 
-		before := result.Result
-		after := rule.ReplaceString(result.Result)
+		before := workingText
+		after := rule.ReplaceString(workingText)
 
 		if before != after {
-			result.Result = after
+			workingText = after
 			result.Changed = true
 			
 			// 変更を記録（簡略化）
@@ -122,6 +133,9 @@ func (r *Replacer) ReplaceString(text string) *ReplaceResult {
 				"changes_count", len(result.Changes))
 		}
 	}
+
+	// Hugoショートコードを復元
+	result.Result = hugoProcessor.RestoreShortcodes(workingText, placeholders)
 
 	r.logger.Info("Text replacement completed", 
 		"changed", result.Changed, 
@@ -204,7 +218,7 @@ func (r *Replacer) GenerateDiff(result *ReplaceResult, filename string) string {
 	return diff.String()
 }
 
-// ValidateMarkdown はMarkdownファイルの妥当性を検証する（簡略化）
+// ValidateMarkdown はMarkdownファイルの妥当性を検証する（Hugoショートコード対応）
 func (r *Replacer) ValidateMarkdown(reader io.Reader) error {
 	content, err := io.ReadAll(reader)
 	if err != nil {
@@ -214,25 +228,27 @@ func (r *Replacer) ValidateMarkdown(reader io.Reader) error {
 	text := string(content)
 	r.logger.Info("Validating Markdown", "content_length", len(text))
 
-	// 簡略化されたMarkdown検証
-	// 実際の実装では、より詳細な構文チェックが必要
-	
-	// Hugoショートコードの許可（{{< >}} や {{% %}} 形式）
-	// 基本的なMarkdown構文のチェック
-	
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		lineNum := i + 1
-		
-		// 基本的なチェック例
-		if strings.Contains(line, "```") {
-			// コードブロックの対応チェック（簡略化）
-			r.logger.Debug("Found code block", "line", lineNum)
+	// HugoProcessorを使用してMarkdown検証
+	hugoProcessor := NewHugoProcessor()
+	issues := hugoProcessor.ValidateHugoMarkdown(text)
+
+	if len(issues) > 0 {
+		r.logger.Warn("Markdown validation issues found", "issues_count", len(issues))
+		for _, issue := range issues {
+			r.logger.Warn("Validation issue", "issue", issue)
 		}
-		
-		if strings.HasPrefix(line, "#") {
-			// ヘッダーの形式チェック（簡略化）
-			r.logger.Debug("Found header", "line", lineNum, "content", line)
+		// 警告として扱い、エラーは返さない
+	}
+
+	// Hugoショートコードの検出と報告
+	shortcodes := hugoProcessor.FindShortcodes(text)
+	if len(shortcodes) > 0 {
+		r.logger.Info("Hugo shortcodes detected", "shortcodes_count", len(shortcodes))
+		for _, sc := range shortcodes {
+			r.logger.Debug("Shortcode found", 
+				"name", sc.Name, 
+				"type", sc.Type, 
+				"position", sc.Position)
 		}
 	}
 
