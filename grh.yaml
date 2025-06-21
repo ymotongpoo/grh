@@ -88,7 +88,7 @@ rules:
 
   # patternには正規表現が利用可能
   - expected: （$1）
-    pattern:  /\(([^)]+)\)/
+    pattern:  \(([^)]+)\)
     specs:
       # 半角括弧を全角括弧へ
       - from: (そのとおり)
@@ -98,7 +98,7 @@ rules:
   # regexpパッケージでサポートされているRE2の形式は次のページで確認できる。
   # https://github.com/google/re2/wiki/Syntax
   - expected: ソフトウェア
-    pattern:  /(日経)?ソフトウエア/
+    pattern:  (日経)?ソフトウエア
     regexpMustEmpty: $1
     specs:
       # 普通に変換
