@@ -1,0 +1,17 @@
+version: 1
+
+imports:
+  - path: base.yml
+
+rules:
+  - expected: React
+    pattern: "[rR][eE][aA][cC][tT]"
+    specs:
+      - from: react
+        to: React
+
+  - expected: Vue.js
+    pattern: "[vV][uU][eE]"
+    specs:
+      - from: vue
+        to: Vue.js

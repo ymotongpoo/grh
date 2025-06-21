@@ -1,0 +1,41 @@
+version: 1
+
+rules:
+  # 基本的な置換
+  - expected: JavaScript
+    pattern: "[jJ][aA][vV][aA][sS][cC][rR][iI][pP][tT]"
+    specs:
+      - from: javascript
+        to: JavaScript
+      - from: JAVASCRIPT
+        to: JavaScript
+
+  # 複数パターンの置換
+  - expected: データベース
+    patterns:
+      - データーベース
+      - データ・ベース
+      - DB
+    specs:
+      - from: データーベース
+        to: データベース
+      - from: DB
+        to: データベース
+
+  # 長音の統一
+  - expected: コンピューター$1
+    pattern: コンピュータ([^ー]|$)
+    specs:
+      - from: コンピュータ
+        to: コンピューター
+      - from: コンピュータの
+        to: コンピューターの
+
+  # 英数字の統一
+  - expected: API
+    pattern: "[aA][pP][iI]"
+    specs:
+      - from: api
+        to: API
+      - from: Api
+        to: API

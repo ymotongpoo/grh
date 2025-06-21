@@ -1,0 +1,14 @@
+version: 1
+
+rules:
+  - expected: HTML
+    pattern: "[hH][tT][mM][lL]"
+    specs:
+      - from: html
+        to: HTML
+
+  - expected: CSS
+    pattern: "[cC][sS][sS]"
+    specs:
+      - from: css
+        to: CSS
