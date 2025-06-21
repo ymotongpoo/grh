@@ -61,7 +61,7 @@ func TestReplacer_ReplaceString(t *testing.T) {
 	}
 }
 
-func TestReplacer_ReplaceReader(t *testing.T) {
+func TestReplacer_Replace(t *testing.T) {
 	config := &Config{
 		Rules: []Rule{
 			{Expected: "Test", Pattern: "[Tt]est"},
@@ -83,15 +83,15 @@ func TestReplacer_ReplaceReader(t *testing.T) {
 
 	input := "This is a test"
 	reader := strings.NewReader(input)
-	result, err := replacer.ReplaceReader(reader)
+	result, err := replacer.Replace(reader)
 
 	if err != nil {
-		t.Fatalf("ReplaceReader() error = %v", err)
+		t.Fatalf("Replace() error = %v", err)
 	}
 
 	expected := "This is a Test"
 	if result.Result != expected {
-		t.Errorf("ReplaceReader() = %q, want %q", result.Result, expected)
+		t.Errorf("Replace() = %q, want %q", result.Result, expected)
 	}
 }
 

@@ -65,8 +65,8 @@ type Change struct {
 	Position  int
 }
 
-// ReplaceReader はio.Readerから読み込んだテキストに対して全ルールを適用する
-func (r *Replacer) ReplaceReader(reader io.Reader) (*ReplaceResult, error) {
+// Replace はio.Readerから読み込んだテキストに対して全ルールを適用する
+func (r *Replacer) Replace(reader io.Reader) (*ReplaceResult, error) {
 	content, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from reader: %w", err)
@@ -140,7 +140,7 @@ func (r *Replacer) ReplaceFile(filePath string) (*ReplaceResult, error) {
 	defer file.Close()
 
 	r.logger.Info("Processing file", "file_path", filePath)
-	return r.ReplaceReader(file)
+	return r.Replace(file)
 }
 
 // WriteResult は置換結果をファイルに書き込む
