@@ -1,0 +1,116 @@
+# Copyright 2025 Yoshi Yamaguchi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# このファイルは https://github.com/prh/prh/blob/master/misc/prh.yml を元に
+# grhを作成するAIツール向けに解説を増やすために修正したものです。
+
+version: 1
+
+# 別の設定ファイルを読み込み、mergeすることもできます。
+imports:
+  # - ./prh-rules/media/techbooster.yml
+  # - ./prh-rules/files/markdown.yml
+  # - ./prh-rules/files/review.yml
+
+  # imports にはいくつかのオプションが指定できる
+  # - path: other-rules.yml
+    # 連鎖的なimportを禁止する
+    # disableImports: true
+    # importするルールで不都合なものは殺すことができる
+    # patternやexpectedに指定する文字列は --rules-yaml で得られるパース後の表現を使うこと
+    # ignoreRules:
+      # pattern: /a/ と等価
+      # - /a/
+      # - pattern:  /a/
+      # - expected: /b/
+
+rules:
+
+  # expectedにアルファベットだけの単語があった場合、大文字小文字全角半角の統一をする
+  - expected: Cookie
+  # 以下と等価 正規表現は sed での /g フラグがついたものと同じ扱いになる
+  # Goで実装する場合 regexp.Regexp#ReplaceAllString(src, repl string) において
+  # regexp.Compile() で作るパターンが pattern 、src が文章全体、repl に下の設定の expected の値が入る
+  # https://go.dev/play/p/RyLMAZ73KsA
+  #
+  # - expected: Cookie
+  #   pattern: "[CcＣｃ][OoＯｏ][OoＯｏ][KkＫｋ][IiＩｉ][EeＥｅ]"
+  #   specs: []
+
+  # 変換結果について specs にテストも書ける
+  - expected: jQuery
+    specs:
+      - from: jquery
+        to:   jQuery
+      - from: ＪＱＵＥＲＹ
+        to:   jQuery
+
+  # この場合は次のパターンと同様となり、fromの値がパターンにマッチして
+  # expectedの値で置き換えた結果がtoとなるかをテストする。
+  # そうならなかった場合は設定のいずれかが間違っている。
+  # - expected: jQuery
+  #   pattern: "[jJｊＪ][qQｑＱ][uUｕＵ][eEｅＥ][rRｒＲ][yYｙＹ]"
+  #   specs:
+  #     - from: jquery
+  #       to:   jQuery
+  #     - from: ＪＱＵＥＲＹ
+  #       to:   jQuery
+
+
+  # 変換結果が期待通りではなかった場合、ルールのロードに失敗する つまり、ルールのテストが書ける
+  # - expected: JavaScript
+  #   specs:
+  #     - from: JAVASCRIPT
+  #       to:   JavaScprit # この場合はテスト側が間違ってる！
+  # Error: JavaScript spec failed. "JAVASCRIPT", expected "JavaScprit", but got "JavaScript", /[JjＪｊ][AaＡａ][VvＶｖ][AaＡａ][SsＳｓ][CcＣｃ][RrＲｒ][IiＩｉ][PpＰｐ][TtＴｔ]/g
+
+  # 表現の統一を図る
+  - expected: デフォルト
+    pattern:  ディフォルト
+
+  # patternは複数記述可能 patterns としてもOK
+  - expected: ハードウェア
+    patterns:
+      - ハードウエアー # 正規表現に変換する都合上、より長いものを先に書いたほうがよい
+      - ハードウェアー
+      - ハードウエア
+
+  # patternには正規表現が利用可能
+  - expected: （$1）
+    pattern:  /\(([^)]+)\)/
+    specs:
+      # 半角括弧を全角括弧へ
+      - from: (そのとおり)
+        to:   （そのとおり）
+
+  # Goのregexp.Compiileに渡す形式で正規表現を記述する
+  # regexpパッケージでサポートされているRE2の形式は次のページで確認できる。
+  # https://github.com/google/re2/wiki/Syntax
+  - expected: ソフトウェア
+    pattern:  /(日経)?ソフトウエア/
+    regexpMustEmpty: $1
+    specs:
+      # 普通に変換
+      - from: 広義のソフトウエア
+        to:   広義のソフトウェア
+      # 日経ソフトウエア(書名)は変換しない
+      - from: 日経ソフトウエア
+        to:   日経ソフトウエア
+
+  # 長音の統一には否定後読みを活用する そうしないと サーバー が サーバーー にされてしまったりする
+  - expected: サーバー
+    pattern:  /サーバ(?!ー)/
+    specs:
+      - from: サーバ
+        to:   サーバー
