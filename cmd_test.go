@@ -92,12 +92,12 @@ func TestCLI_RulesJSON(t *testing.T) {
 	}
 
 	jsonOutput := string(output)
-	if !strings.Contains(jsonOutput, `"Version": 1`) {
-		t.Error("JSON output should contain '\"Version\": 1'")
+	if !strings.Contains(jsonOutput, `"version": 1`) {
+		t.Error("JSON output should contain '\"version\": 1'")
 	}
 
-	if !strings.Contains(jsonOutput, `"Rules":`) {
-		t.Error("JSON output should contain '\"Rules\":'")
+	if !strings.Contains(jsonOutput, `"rules":`) {
+		t.Error("JSON output should contain '\"rules\":'")
 	}
 }
 

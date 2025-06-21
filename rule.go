@@ -23,35 +23,35 @@ import (
 
 // Config はルールファイル全体の設定を表す構造体
 type Config struct {
-	Version     int       `yaml:"version"`
-	Imports     []Import  `yaml:"imports,omitempty"`
-	Rules       []Rule    `yaml:"rules"`
-	SourcePaths []string  `yaml:"sourcePaths,omitempty"` // --rules-yaml, --rules-json用
+	Version     int       `yaml:"version" json:"version"`
+	Imports     []Import  `yaml:"imports,omitempty" json:"imports,omitempty"`
+	Rules       []Rule    `yaml:"rules" json:"rules"`
+	SourcePaths []string  `yaml:"sourcePaths,omitempty" json:"sourcePaths,omitempty"` // --rules-yaml, --rules-json用
 }
 
 // Import は他の設定ファイルのインポート設定を表す構造体
 type Import struct {
-	Path           string   `yaml:"path,omitempty"`
-	DisableImports bool     `yaml:"disableImports,omitempty"`
-	IgnoreRules    []string `yaml:"ignoreRules,omitempty"`
+	Path           string   `yaml:"path,omitempty" json:"path,omitempty"`
+	DisableImports bool     `yaml:"disableImports,omitempty" json:"disableImports,omitempty"`
+	IgnoreRules    []string `yaml:"ignoreRules,omitempty" json:"ignoreRules,omitempty"`
 }
 
 // Rule は個別の置換ルールを表す構造体
 type Rule struct {
-	Expected        string `yaml:"expected"`
-	Pattern         string `yaml:"pattern,omitempty"`
-	Patterns        []string `yaml:"patterns,omitempty"`
-	RegexpMustEmpty string `yaml:"regexpMustEmpty,omitempty"`
-	Specs           []Spec `yaml:"specs,omitempty"`
+	Expected        string `yaml:"expected" json:"expected"`
+	Pattern         string `yaml:"pattern,omitempty" json:"pattern,omitempty"`
+	Patterns        []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	RegexpMustEmpty string `yaml:"regexpMustEmpty,omitempty" json:"regexpMustEmpty,omitempty"`
+	Specs           []Spec `yaml:"specs,omitempty" json:"specs,omitempty"`
 	
 	// 内部処理用（YAMLには出力されない）
-	compiledRegexp *regexp.Regexp `yaml:"-"`
+	compiledRegexp *regexp.Regexp `yaml:"-" json:"-"`
 }
 
 // Spec はルールのテストケースを表す構造体
 type Spec struct {
-	From string `yaml:"from"`
-	To   string `yaml:"to"`
+	From string `yaml:"from" json:"from"`
+	To   string `yaml:"to" json:"to"`
 }
 
 // CompilePattern はルールのパターンを正規表現にコンパイルする
