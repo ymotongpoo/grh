@@ -16,6 +16,7 @@ package grh
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -109,7 +110,26 @@ func (r *Rule) generateCaseInsensitivePattern() string {
 	return pattern.String()
 }
 
-// Replace はテキストに対してルールを適用して置換を行う
+// ReplaceReader はio.Readerから読み込んだテキストに対してルールを適用して置換を行う
+func (r *Rule) ReplaceReader(reader io.Reader) (string, error) {
+	if r.compiledRegexp == nil {
+		// パターンがコンパイルされていない場合は、そのまま読み込んで返す
+		content, err := io.ReadAll(reader)
+		if err != nil {
+			return "", fmt.Errorf("failed to read from reader: %w", err)
+		}
+		return string(content), nil
+	}
+	
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read from reader: %w", err)
+	}
+	
+	return r.compiledRegexp.ReplaceAllString(string(content), r.Expected), nil
+}
+
+// Replace はテキストに対してルールを適用して置換を行う（後方互換性のため残す）
 func (r *Rule) Replace(text string) string {
 	if r.compiledRegexp == nil {
 		return text

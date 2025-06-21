@@ -15,6 +15,7 @@
 package grh
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -56,6 +57,68 @@ func TestRule_CompilePattern(t *testing.T) {
 			err := tt.rule.CompilePattern()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Rule.CompilePattern() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRule_ReplaceReader(t *testing.T) {
+	tests := []struct {
+		name     string
+		rule     Rule
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "simple replacement",
+			rule:     Rule{Expected: "Cookie", Pattern: "[Cc]ookie"},
+			input:    "This is a cookie",
+			expected: "This is a Cookie",
+			wantErr:  false,
+		},
+		{
+			name:     "multiple patterns",
+			rule:     Rule{Expected: "ハードウェア", Patterns: []string{"ハードウエア", "ハードウエアー"}},
+			input:    "ハードウエアの話",
+			expected: "ハードウェアの話",
+			wantErr:  false,
+		},
+		{
+			name:     "regex with capture group",
+			rule:     Rule{Expected: "（$1）", Pattern: "/\\(([^)]+)\\)/"},
+			input:    "これは(テスト)です",
+			expected: "これは（テスト）です",
+			wantErr:  false,
+		},
+		{
+			name:     "no compiled pattern",
+			rule:     Rule{Expected: "test"},
+			input:    "original text",
+			expected: "original text",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.rule.Pattern != "" || len(tt.rule.Patterns) > 0 {
+				err := tt.rule.CompilePattern()
+				if err != nil {
+					t.Fatalf("Failed to compile pattern: %v", err)
+				}
+			}
+			
+			reader := strings.NewReader(tt.input)
+			result, err := tt.rule.ReplaceReader(reader)
+			
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Rule.ReplaceReader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			
+			if result != tt.expected {
+				t.Errorf("Rule.ReplaceReader() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
