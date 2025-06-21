@@ -110,8 +110,8 @@ func (r *Rule) generateCaseInsensitivePattern() string {
 	return pattern.String()
 }
 
-// ReplaceReader はio.Readerから読み込んだテキストに対してルールを適用して置換を行う
-func (r *Rule) ReplaceReader(reader io.Reader) (string, error) {
+// Replace はio.Readerから読み込んだテキストに対してルールを適用して置換を行う
+func (r *Rule) Replace(reader io.Reader) (string, error) {
 	if r.compiledRegexp == nil {
 		// パターンがコンパイルされていない場合は、そのまま読み込んで返す
 		content, err := io.ReadAll(reader)
@@ -129,8 +129,8 @@ func (r *Rule) ReplaceReader(reader io.Reader) (string, error) {
 	return r.compiledRegexp.ReplaceAllString(string(content), r.Expected), nil
 }
 
-// Replace はテキストに対してルールを適用して置換を行う（後方互換性のため残す）
-func (r *Rule) Replace(text string) string {
+// ReplaceString はテキストに対してルールを適用して置換を行う
+func (r *Rule) ReplaceString(text string) string {
 	if r.compiledRegexp == nil {
 		return text
 	}
@@ -147,7 +147,7 @@ func (r *Rule) ValidateSpecs() error {
 	}
 	
 	for _, spec := range r.Specs {
-		result := r.Replace(spec.From)
+		result := r.ReplaceString(spec.From)
 		if result != spec.To {
 			return fmt.Errorf("spec failed: %q expected %q, but got %q", spec.From, spec.To, result)
 		}

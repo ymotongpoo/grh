@@ -62,7 +62,7 @@ func TestRule_CompilePattern(t *testing.T) {
 	}
 }
 
-func TestRule_ReplaceReader(t *testing.T) {
+func TestRule_Replace(t *testing.T) {
 	tests := []struct {
 		name     string
 		rule     Rule
@@ -110,21 +110,21 @@ func TestRule_ReplaceReader(t *testing.T) {
 			}
 			
 			reader := strings.NewReader(tt.input)
-			result, err := tt.rule.ReplaceReader(reader)
+			result, err := tt.rule.Replace(reader)
 			
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Rule.ReplaceReader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Rule.Replace() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			
 			if result != tt.expected {
-				t.Errorf("Rule.ReplaceReader() = %q, want %q", result, tt.expected)
+				t.Errorf("Rule.Replace() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestRule_Replace(t *testing.T) {
+func TestRule_ReplaceString(t *testing.T) {
 	tests := []struct {
 		name     string
 		rule     Rule
@@ -158,9 +158,9 @@ func TestRule_Replace(t *testing.T) {
 				t.Fatalf("Failed to compile pattern: %v", err)
 			}
 			
-			result := tt.rule.Replace(tt.input)
+			result := tt.rule.ReplaceString(tt.input)
 			if result != tt.expected {
-				t.Errorf("Rule.Replace() = %q, want %q", result, tt.expected)
+				t.Errorf("Rule.ReplaceString() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
