@@ -80,8 +80,8 @@ func TestFindRuleFile(t *testing.T) {
 	// テスト用の一時ディレクトリを作成
 	tempDir := t.TempDir()
 	
-	// prh.ymlファイルを作成
-	prhPath := filepath.Join(tempDir, "prh.yml")
+	// grh.ymlファイルを作成
+	prhPath := filepath.Join(tempDir, "grh.yml")
 	err := os.WriteFile(prhPath, []byte("version: 1\nrules: []"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)

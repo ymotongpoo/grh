@@ -35,7 +35,7 @@ func TestFinalIntegration_FullWorkflow(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// テスト用のルールファイルを作成
-	ruleFile := filepath.Join(tempDir, "prh.yml")
+	ruleFile := filepath.Join(tempDir, "grh.yml")
 	ruleContent := `version: 1
 rules:
   - expected: JavaScript
@@ -211,8 +211,8 @@ func TestFinalIntegration_RuleFileDiscovery(t *testing.T) {
 	// テスト用の一時ディレクトリを作成
 	tempDir := t.TempDir()
 
-	// prh.ymlファイルを作成
-	ruleFile := filepath.Join(tempDir, "prh.yml")
+	// grh.ymlファイルを作成
+	ruleFile := filepath.Join(tempDir, "grh.yml")
 	ruleContent := `version: 1
 rules:
   - expected: Test

@@ -67,7 +67,7 @@ func LoadConfigFromReader(reader io.Reader, sourcePath string) (*Config, error) 
 	return &config, nil
 }
 
-// FindRuleFile はカレントディレクトリから上位ディレクトリに向かってprh.yml/prh.yamlを探す
+// FindRuleFile はカレントディレクトリから上位ディレクトリに向かってgrh.yml/grh.yamlを探す
 func FindRuleFile(startDir string) (string, error) {
 	dir := startDir
 	if dir == "" {
@@ -79,8 +79,8 @@ func FindRuleFile(startDir string) (string, error) {
 	}
 
 	for {
-		// prh.yml を優先的に探す
-		for _, filename := range []string{"prh.yml", "prh.yaml"} {
+		// grh.yml を優先的に探す
+		for _, filename := range []string{"grh.yml", "grh.yaml"} {
 			path := filepath.Join(dir, filename)
 			if _, err := os.Stat(path); err == nil {
 				return path, nil
@@ -96,7 +96,7 @@ func FindRuleFile(startDir string) (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("rule file (prh.yml or prh.yaml) not found")
+	return "", fmt.Errorf("rule file (grh.yml or grh.yaml) not found")
 }
 
 // MergeConfigs は複数のConfigをマージする（後のものが優先される）
