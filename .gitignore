@@ -1,5 +1,7 @@
 # ビルド結果のバイナリ
-**/grh
+grh
+**/grh_test
+**/grh_integration_test
 
 # Go
 *.exe

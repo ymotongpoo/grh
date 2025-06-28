@@ -31,7 +31,7 @@ type Replacer struct {
 // NewReplacer は新しいReplacerを作成する
 func NewReplacer(config *Config) *Replacer {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelWarn,
 	}))
 
 	return &Replacer{

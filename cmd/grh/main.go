@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/ymotongpoo/grh"
 	"gopkg.in/yaml.v3"
@@ -37,6 +38,21 @@ type CLIOptions struct {
 	Diff      bool
 	Replace   bool
 	Files     []string
+}
+
+// Statistics は処理統計を表す構造体
+type Statistics struct {
+	FilesProcessed   int
+	FilesModified    int
+	TotalReplacements int
+	FileStats        []FileStatistics
+}
+
+// FileStatistics はファイル毎の統計を表す構造体
+type FileStatistics struct {
+	FilePath     string
+	Replacements int
+	Modified     bool
 }
 
 func main() {
@@ -63,15 +79,41 @@ func main() {
 	// 残りの引数をファイルリストとして取得
 	opts.Files = flag.Args()
 
-	// ロガーの設定
+	// ロガーの設定（--verifyオプション使用時はInfoレベル、それ以外はWarnレベル）
+	logLevel := slog.LevelWarn
+	if opts.Verify {
+		logLevel = slog.LevelInfo
+	}
+	
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 
 	if err := run(opts, logger); err != nil {
 		logger.Error("Command failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+// 統計表示用のテンプレート
+const statsTemplate = `
+処理結果:
+  処理ファイル数: {{.FilesProcessed}}
+  変更ファイル数: {{.FilesModified}}
+  総置換回数: {{.TotalReplacements}}
+{{if gt (len .FileStats) 0}}
+ファイル別詳細:{{range .FileStats}}{{if .Modified}}
+  {{.FilePath}}: {{.Replacements}}件の置換{{end}}{{end}}
+{{end}}`
+
+// printStatistics は統計情報を標準出力に表示する
+func printStatistics(stats Statistics) error {
+	tmpl, err := template.New("stats").Parse(statsTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
+	}
+	
+	return tmpl.Execute(os.Stdout, stats)
 }
 
 func run(opts CLIOptions, logger *slog.Logger) error {
@@ -117,10 +159,33 @@ func run(opts CLIOptions, logger *slog.Logger) error {
 	// Replacerを作成
 	replacer := grh.NewReplacerWithLogger(config, logger)
 
+	// 統計情報を初期化
+	stats := Statistics{
+		FilesProcessed: 0,
+		FilesModified:  0,
+		TotalReplacements: 0,
+		FileStats: make([]FileStatistics, 0),
+	}
+
 	// 各ファイルを処理
 	for _, filePath := range opts.Files {
-		if err := processFile(filePath, opts, replacer, logger); err != nil {
+		fileStat, err := processFile(filePath, opts, replacer, logger)
+		if err != nil {
 			return fmt.Errorf("failed to process file %q: %w", filePath, err)
+		}
+		
+		stats.FilesProcessed++
+		if fileStat.Modified {
+			stats.FilesModified++
+		}
+		stats.TotalReplacements += fileStat.Replacements
+		stats.FileStats = append(stats.FileStats, fileStat)
+	}
+
+	// 統計情報を表示（--verify, --rules-yaml, --rules-json以外の場合）
+	if !opts.Verify && !opts.RulesYAML && !opts.RulesJSON {
+		if err := printStatistics(stats); err != nil {
+			logger.Warn("Failed to print statistics", "error", err)
 		}
 	}
 
@@ -145,24 +210,35 @@ func outputRulesJSON(config *grh.Config) error {
 	return nil
 }
 
-func processFile(filePath string, opts CLIOptions, replacer *grh.Replacer, logger *slog.Logger) error {
+func processFile(filePath string, opts CLIOptions, replacer *grh.Replacer, logger *slog.Logger) (FileStatistics, error) {
 	logger.Info("Processing file", "file_path", filePath)
+
+	fileStat := FileStatistics{
+		FilePath:     filePath,
+		Replacements: 0,
+		Modified:     false,
+	}
 
 	// --verify オプションの処理
 	if opts.Verify {
-		return verifyMarkdown(filePath, replacer, logger)
+		err := verifyMarkdown(filePath, replacer, logger)
+		return fileStat, err
 	}
 
 	// ファイルを処理
 	result, err := replacer.ReplaceFile(filePath)
 	if err != nil {
-		return err
+		return fileStat, err
 	}
+
+	// 統計情報を更新
+	fileStat.Replacements = len(result.Changes)
+	fileStat.Modified = result.Changed
 
 	// --stdout オプションの処理
 	if opts.Stdout {
 		fmt.Print(result.Result)
-		return nil
+		return fileStat, nil
 	}
 
 	// --diff オプションの処理
@@ -171,12 +247,13 @@ func processFile(filePath string, opts CLIOptions, replacer *grh.Replacer, logge
 		if diff != "" {
 			fmt.Print(diff)
 		}
-		return nil
+		return fileStat, nil
 	}
 
 	// --replace オプションの処理
 	if opts.Replace {
-		return replacer.WriteResult(result, filePath)
+		err := replacer.WriteResult(result, filePath)
+		return fileStat, err
 	}
 
 	// デフォルト動作：変更があった場合のみ通知
@@ -195,7 +272,7 @@ func processFile(filePath string, opts CLIOptions, replacer *grh.Replacer, logge
 		logger.Info("No changes needed", "file_path", filePath)
 	}
 
-	return nil
+	return fileStat, nil
 }
 
 func verifyMarkdown(filePath string, replacer *grh.Replacer, logger *slog.Logger) error {
