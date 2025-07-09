@@ -62,11 +62,8 @@ func (r *Rule) CompilePattern() error {
 		pattern = r.Pattern
 	} else if len(r.Patterns) > 0 {
 		// 複数のパターンがある場合は OR で結合
-		escapedPatterns := make([]string, len(r.Patterns))
-		for i, p := range r.Patterns {
-			escapedPatterns[i] = regexp.QuoteMeta(p)
-		}
-		pattern = strings.Join(escapedPatterns, "|")
+		// patternsは正規表現として扱う（エスケープしない）
+		pattern = strings.Join(r.Patterns, "|")
 	} else if r.Expected != "" {
 		// expectedのみの場合は大文字小文字全角半角の統一パターンを生成
 		pattern = r.generateCaseInsensitivePattern()
