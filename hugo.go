@@ -29,13 +29,22 @@ type HugoShortcode struct {
 	Length   int
 }
 
-// HugoProcessor はHugoショートコードの処理を行う
+// HugoProcessor はHugoショートコードとMarkdownコードの処理を行う
 type HugoProcessor struct {
 	// Hugoショートコードのパターン
 	pairedShortcodeRegex      *regexp.Regexp // {{< name >}}...{{< /name >}}
 	pairedShortcodeRegexAlt   *regexp.Regexp // {{% name %}}...{{% /name %}}
 	selfClosingShortcodeRegex *regexp.Regexp // {{< name />}} または {{< name >}}
 	selfClosingShortcodeRegexAlt *regexp.Regexp // {{% name /%}} または {{% name %}}
+	
+	// Markdownコードのパターン
+	codeBlockRegex *regexp.Regexp // ```...```
+	codeSpanRegex  *regexp.Regexp // `...`
+	
+	// Markdownリンクのパターン
+	linkRegex      *regexp.Regexp // [text](url)
+	refLinkRegex   *regexp.Regexp // [ref]: url
+	refLinkUseRegex *regexp.Regexp // [text][ref]
 }
 
 // NewHugoProcessor は新しいHugoProcessorを作成する
@@ -50,6 +59,18 @@ func NewHugoProcessor() *HugoProcessor {
 		selfClosingShortcodeRegex: regexp.MustCompile(`\{\{<\s*([a-zA-Z0-9_-]+)(?:\s+[^>]*)?\s*/?>\}\}`),
 		// セルフクローズショートコード（代替形式）: {{% name /%}} または {{% name %}}
 		selfClosingShortcodeRegexAlt: regexp.MustCompile(`\{\{%\s*([a-zA-Z0-9_-]+)(?:\s+[^%]*)?\s*/?%\}\}`),
+		
+		// Markdownコードブロック: ```...```（複数行対応）
+		codeBlockRegex: regexp.MustCompile("(?s)```[^\\n]*\\n(.*?)```"),
+		// Markdownコードスパン: `...`（単一行）
+		codeSpanRegex: regexp.MustCompile("`([^`\n]+)`"),
+		
+		// Markdownインラインリンク: [text](url)
+		linkRegex: regexp.MustCompile(`\[([^\]]*)\]\(([^)]+)\)`),
+		// Markdown参照リンク定義: [ref]: url
+		refLinkRegex: regexp.MustCompile(`(?m)^\s*\[([^\]]+)\]:\s*(.+)$`),
+		// Markdown参照リンク使用: [text][ref]
+		refLinkUseRegex: regexp.MustCompile(`\[([^\]]*)\]\[([^\]]+)\]`),
 	}
 }
 
@@ -136,13 +157,53 @@ func (hp *HugoProcessor) isPartOfPairedShortcode(text string, position int, shor
 	return false
 }
 
-// PreserveShortcodes はショートコードを一時的にプレースホルダーに置換する
+// PreserveShortcodes はショートコードとMarkdownコードを一時的にプレースホルダーに置換する
 func (hp *HugoProcessor) PreserveShortcodes(text string) (string, map[string]string) {
 	placeholders := make(map[string]string)
 	result := text
 
 	// より安全なアプローチ：正規表現で直接置換
 	counter := 0
+	
+	// Markdownコードブロックを最初に保護（優先度高）
+	result = hp.codeBlockRegex.ReplaceAllStringFunc(result, func(match string) string {
+		counter++
+		placeholder := fmt.Sprintf("___MARKDOWN_CODE_BLOCK_%d___", counter)
+		placeholders[placeholder] = match
+		return placeholder
+	})
+	
+	// Markdownコードスパンを保護
+	result = hp.codeSpanRegex.ReplaceAllStringFunc(result, func(match string) string {
+		counter++
+		placeholder := fmt.Sprintf("___MARKDOWN_CODE_SPAN_%d___", counter)
+		placeholders[placeholder] = match
+		return placeholder
+	})
+	
+	// Markdownインラインリンクを保護
+	result = hp.linkRegex.ReplaceAllStringFunc(result, func(match string) string {
+		counter++
+		placeholder := fmt.Sprintf("___MARKDOWN_LINK_%d___", counter)
+		placeholders[placeholder] = match
+		return placeholder
+	})
+	
+	// Markdown参照リンク使用を保護
+	result = hp.refLinkUseRegex.ReplaceAllStringFunc(result, func(match string) string {
+		counter++
+		placeholder := fmt.Sprintf("___MARKDOWN_REF_LINK_USE_%d___", counter)
+		placeholders[placeholder] = match
+		return placeholder
+	})
+	
+	// Markdown参照リンク定義を保護
+	result = hp.refLinkRegex.ReplaceAllStringFunc(result, func(match string) string {
+		counter++
+		placeholder := fmt.Sprintf("___MARKDOWN_REF_LINK_%d___", counter)
+		placeholders[placeholder] = match
+		return placeholder
+	})
 	
 	// ペアードショートコード（{{< >}}形式）を置換
 	result = hp.pairedShortcodeRegex.ReplaceAllStringFunc(result, func(match string) string {
