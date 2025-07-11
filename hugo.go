@@ -50,11 +50,11 @@ type HugoProcessor struct {
 // NewHugoProcessor は新しいHugoProcessorを作成する
 func NewHugoProcessor() *HugoProcessor {
 	return &HugoProcessor{
-		// ペアードショートコード: {{< name >}}...{{< /name >}}
-		// 注意：RE2では後方参照が使えないため、より単純なパターンを使用
-		pairedShortcodeRegex: regexp.MustCompile(`(?s)\{\{<\s*([a-zA-Z0-9_-]+)(?:\s+[^>]*)?\s*>\}\}(.*?)\{\{<\s*/[a-zA-Z0-9_-]+\s*>\}\}`),
-		// ペアードショートコード（代替形式）: {{% name %}}...{{% /name %}}
-		pairedShortcodeRegexAlt: regexp.MustCompile(`(?s)\{\{%\s*([a-zA-Z0-9_-]+)(?:\s+[^%]*)?\s*%\}\}(.*?)\{\{%\s*/[a-zA-Z0-9_-]+\s*%\}\}`),
+		// RE2では後方参照が使えないため、ペアードショートコードは手動でマッチングする
+		// 開始タグのみを検出する正規表現
+		pairedShortcodeRegex: regexp.MustCompile(`\{\{<\s*([a-zA-Z0-9_-]+)(?:\s+[^>]*)?\s*>\}\}`),
+		// ペアードショートコード（代替形式）開始タグ
+		pairedShortcodeRegexAlt: regexp.MustCompile(`\{\{%\s*([a-zA-Z0-9_-]+)(?:\s+[^%]*)?\s*%\}\}`),
 		// セルフクローズショートコード: {{< name />}} または {{< name >}}
 		selfClosingShortcodeRegex: regexp.MustCompile(`\{\{<\s*([a-zA-Z0-9_-]+)(?:\s+[^>]*)?\s*/?>\}\}`),
 		// セルフクローズショートコード（代替形式）: {{% name /%}} または {{% name %}}
@@ -78,38 +78,18 @@ func NewHugoProcessor() *HugoProcessor {
 func (hp *HugoProcessor) FindShortcodes(text string) []HugoShortcode {
 	var shortcodes []HugoShortcode
 
-	// ペアードショートコード（{{< >}}形式）を検索
-	matches := hp.pairedShortcodeRegex.FindAllStringSubmatchIndex(text, -1)
-	for _, match := range matches {
-		if len(match) >= 6 {
-			shortcode := HugoShortcode{
-				Type:     "paired",
-				Name:     text[match[2]:match[3]],
-				Content:  text[match[4]:match[5]],
-				Position: match[0],
-				Length:   match[1] - match[0],
-			}
-			shortcodes = append(shortcodes, shortcode)
-		}
-	}
+	// RE2の制限により、ペアードショートコードは手動でマッチングする
+	// ペアードショートコードを最初に検出（優先度高）
+	pairedShortcodes := hp.findPairedShortcodes(text, `\{\{<\s*([a-zA-Z0-9_-]+)\s*(?:[^>]*)?\s*>\}\}`, `\{\{<\s*/([a-zA-Z0-9_-]+)\s*>\}\}`)
+	shortcodes = append(shortcodes, pairedShortcodes...)
 
-	// ペアードショートコード（{{% %}}形式）を検索
-	matches = hp.pairedShortcodeRegexAlt.FindAllStringSubmatchIndex(text, -1)
-	for _, match := range matches {
-		if len(match) >= 6 {
-			shortcode := HugoShortcode{
-				Type:     "paired",
-				Name:     text[match[2]:match[3]],
-				Content:  text[match[4]:match[5]],
-				Position: match[0],
-				Length:   match[1] - match[0],
-			}
-			shortcodes = append(shortcodes, shortcode)
-		}
-	}
+	// ペアードショートコード（代替形式）
+	pairedShortcodesAlt := hp.findPairedShortcodes(text, `\{\{%\s*([a-zA-Z0-9_-]+)\s*(?:[^%]*)?\s*%\}\}`, `\{\{%\s*/([a-zA-Z0-9_-]+)\s*%\}\}`)
+	shortcodes = append(shortcodes, pairedShortcodesAlt...)
 
 	// セルフクローズショートコード（{{< >}}形式）を検索
-	matches = hp.selfClosingShortcodeRegex.FindAllStringSubmatchIndex(text, -1)
+	// ペアードショートコードと重複しないもののみ追加
+	matches := hp.selfClosingShortcodeRegex.FindAllStringSubmatchIndex(text, -1)
 	for _, match := range matches {
 		if len(match) >= 4 {
 			// ペアードショートコードと重複しないかチェック
@@ -145,6 +125,79 @@ func (hp *HugoProcessor) FindShortcodes(text string) []HugoShortcode {
 	}
 
 	return shortcodes
+}
+
+// findPairedShortcodes はペアードショートコードを手動でマッチングする
+// RE2では後方参照が使えないため、開始タグと終了タグを個別に検索してペアリングする
+func (hp *HugoProcessor) findPairedShortcodes(text, startPattern, endPattern string) []HugoShortcode {
+	var shortcodes []HugoShortcode
+	
+	startRegex := regexp.MustCompile(startPattern)
+	endRegex := regexp.MustCompile(endPattern)
+	
+	startMatches := startRegex.FindAllStringSubmatchIndex(text, -1)
+	endMatches := endRegex.FindAllStringSubmatchIndex(text, -1)
+	
+	// 開始タグと終了タグをペアリング
+	for _, startMatch := range startMatches {
+		if len(startMatch) < 4 {
+			continue
+		}
+		
+		startPos := startMatch[0]
+		startEnd := startMatch[1]
+		startName := text[startMatch[2]:startMatch[3]]
+		
+		// この開始タグに対応する終了タグを探す
+		for _, endMatch := range endMatches {
+			if len(endMatch) < 4 {
+				continue
+			}
+			
+			endPos := endMatch[0]
+			endEnd := endMatch[1]
+			endName := text[endMatch[2]:endMatch[3]]
+			
+			// 終了タグが開始タグより後にあるか同じ位置にあり、名前が一致する場合
+			if endPos >= startEnd && startName == endName {
+				// 間に他の同名の開始タグがないかチェック（ネスト対応）
+				if !hp.hasIntermediateStartTag(text, startEnd, endPos, startName, startPattern) {
+					shortcode := HugoShortcode{
+						Type:     "paired",
+						Name:     startName,
+						Content:  text[startEnd:endPos],
+						Position: startPos,
+						Length:   endEnd - startPos,
+					}
+					shortcodes = append(shortcodes, shortcode)
+					break // この開始タグに対する終了タグが見つかったので次へ
+				}
+			}
+		}
+	}
+	
+	return shortcodes
+}
+
+// hasIntermediateStartTag は指定範囲内に同名の開始タグがあるかチェック
+func (hp *HugoProcessor) hasIntermediateStartTag(text string, start, end int, name, pattern string) bool {
+	if start >= end || end > len(text) {
+		return false
+	}
+	
+	regex := regexp.MustCompile(pattern)
+	matches := regex.FindAllStringSubmatchIndex(text[start:end], -1)
+	
+	for _, match := range matches {
+		if len(match) >= 4 {
+			matchName := text[start+match[2] : start+match[3]]
+			if matchName == name {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // isPartOfPairedShortcode は指定位置がペアードショートコードの一部かどうかをチェック
@@ -205,37 +258,36 @@ func (hp *HugoProcessor) PreserveShortcodes(text string) (string, map[string]str
 		return placeholder
 	})
 	
-	// ペアードショートコード（{{< >}}形式）を置換
-	result = hp.pairedShortcodeRegex.ReplaceAllStringFunc(result, func(match string) string {
-		counter++
-		placeholder := fmt.Sprintf("___HUGO_SHORTCODE_PAIRED_%d___", counter)
-		placeholders[placeholder] = match
-		return placeholder
-	})
-
-	// ペアードショートコード（{{% %}}形式）を置換
-	result = hp.pairedShortcodeRegexAlt.ReplaceAllStringFunc(result, func(match string) string {
-		counter++
-		placeholder := fmt.Sprintf("___HUGO_SHORTCODE_PAIRED_ALT_%d___", counter)
-		placeholders[placeholder] = match
-		return placeholder
-	})
-
-	// セルフクローズショートコード（{{< >}}形式）を置換
-	result = hp.selfClosingShortcodeRegex.ReplaceAllStringFunc(result, func(match string) string {
-		counter++
-		placeholder := fmt.Sprintf("___HUGO_SHORTCODE_SELF_%d___", counter)
-		placeholders[placeholder] = match
-		return placeholder
-	})
-
-	// セルフクローズショートコード（{{% %}}形式）を置換
-	result = hp.selfClosingShortcodeRegexAlt.ReplaceAllStringFunc(result, func(match string) string {
-		counter++
-		placeholder := fmt.Sprintf("___HUGO_SHORTCODE_SELF_ALT_%d___", counter)
-		placeholders[placeholder] = match
-		return placeholder
-	})
+	// Hugoショートコードを検出して保護
+	shortcodes := hp.FindShortcodes(result)
+	
+	// 位置の降順でソート（後ろから置換して位置がずれないようにする）
+	for i := 0; i < len(shortcodes); i++ {
+		for j := i + 1; j < len(shortcodes); j++ {
+			if shortcodes[i].Position < shortcodes[j].Position {
+				shortcodes[i], shortcodes[j] = shortcodes[j], shortcodes[i]
+			}
+		}
+	}
+	
+	// ショートコードを後ろから置換
+	for _, sc := range shortcodes {
+		if sc.Position+sc.Length <= len(result) {
+			counter++
+			var placeholder string
+			if sc.Type == "paired" {
+				placeholder = fmt.Sprintf("___HUGO_SHORTCODE_PAIRED_%d___", counter)
+			} else {
+				placeholder = fmt.Sprintf("___HUGO_SHORTCODE_SELF_%d___", counter)
+			}
+			
+			original := result[sc.Position:sc.Position+sc.Length]
+			placeholders[placeholder] = original
+			
+			// 文字列を置換
+			result = result[:sc.Position] + placeholder + result[sc.Position+sc.Length:]
+		}
+	}
 
 	return result, placeholders
 }
