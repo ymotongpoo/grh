@@ -38,14 +38,16 @@ type Import struct {
 
 // Rule は個別の置換ルールを表す構造体
 type Rule struct {
-	Expected        string `yaml:"expected" json:"expected"`
-	Pattern         string `yaml:"pattern,omitempty" json:"pattern,omitempty"`
-	Patterns        []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
-	RegexpMustEmpty string `yaml:"regexpMustEmpty,omitempty" json:"regexpMustEmpty,omitempty"`
-	Specs           []Spec `yaml:"specs,omitempty" json:"specs,omitempty"`
-	
+	Expected            string   `yaml:"expected" json:"expected"`
+	Pattern             string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
+	Patterns            []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	RegexpMustEmpty     string   `yaml:"regexpMustEmpty,omitempty" json:"regexpMustEmpty,omitempty"`
+	Specs               []Spec   `yaml:"specs,omitempty" json:"specs,omitempty"`
+	IgnorePatternBefore string   `yaml:"ignorePatternBefore,omitempty" json:"ignorePatternBefore,omitempty"`
+
 	// 内部処理用（YAMLには出力されない）
-	compiledRegexp *regexp.Regexp `yaml:"-" json:"-"`
+	compiledRegexp       *regexp.Regexp `yaml:"-" json:"-"`
+	compiledIgnoreBefore *regexp.Regexp `yaml:"-" json:"-"`
 }
 
 // Spec はルールのテストケースを表す構造体
@@ -80,8 +82,19 @@ func (r *Rule) CompilePattern() error {
 	if err != nil {
 		return fmt.Errorf("failed to compile pattern %q: %w", pattern, err)
 	}
-	
 	r.compiledRegexp = compiled
+
+	if r.IgnorePatternBefore != "" {
+		ignorePattern := r.IgnorePatternBefore
+		if !strings.HasSuffix(ignorePattern, "$") {
+			ignorePattern += "$"
+		}
+		compiledIgnore, err := regexp.Compile(ignorePattern)
+		if err != nil {
+			return fmt.Errorf("failed to compile ignorePatternBefore %q: %w", r.IgnorePatternBefore, err)
+		}
+		r.compiledIgnoreBefore = compiledIgnore
+	}
 	return nil
 }
 

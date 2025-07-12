@@ -191,3 +191,69 @@ This is a paragraph.
 		t.Errorf("ValidateMarkdown() error = %v", err)
 	}
 }
+
+func TestReplacer_ReplaceString_WithIgnorePatternBefore(t *testing.T) {
+	// テスト用のConfigを作成
+	config := &Config{
+		Rules: []Rule{
+			{
+				Expected:            "運用担当者",
+				Patterns:            []string{"オペレーター", "オペレータ"},
+				IgnorePatternBefore: "Kubernetes\\s+", // 直前が "Kubernetes " の場合
+			},
+		},
+	}
+
+	// ルールをコンパイル
+	for i := range config.Rules {
+		if err := config.Rules[i].CompilePattern(); err != nil {
+			t.Fatalf("Failed to compile rule %d: %v", i, err)
+		}
+	}
+
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	}))
+	replacer := NewReplacerWithLogger(config, logger)
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "should replace when not preceded by Kubernetes",
+			input:    "これはオペレーターの仕事です。",
+			expected: "これは運用担当者の仕事です。",
+		},
+		{
+			name:     "should NOT replace when preceded by Kubernetes",
+			input:    "Kubernetes オペレーターは重要です。",
+			expected: "Kubernetes オペレーターは重要です。",
+		},
+		{
+			name:     "should replace 'オペレータ' as well",
+			input:    "あのオペレータは優秀だ。",
+			expected: "あの運用担当者は優秀だ。",
+		},
+		{
+			name:     "should NOT replace 'オペレータ' when preceded by Kubernetes",
+			input:    "Kubernetes オペレータの役割",
+			expected: "Kubernetes オペレータの役割",
+		},
+		{
+			name:     "mixed cases",
+			input:    "Kubernetes オペレーターと、ただのオペレーター",
+			expected: "Kubernetes オペレーターと、ただの運用担当者",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := replacer.ReplaceString(tt.input)
+			if result.Result != tt.expected {
+				t.Errorf("ReplaceString() = %q, want %q", result.Result, tt.expected)
+			}
+		})
+	}
+}
