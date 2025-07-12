@@ -88,6 +88,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
+	slog.SetDefault(logger)
 
 	if err := run(opts, logger); err != nil {
 		logger.Error("Command failed", "error", err)

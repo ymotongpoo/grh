@@ -31,8 +31,11 @@ type Replacer struct {
 // NewReplacer は新しいReplacerを作成する
 func NewReplacer(config *Config) *Replacer {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
+		Level: slog.LevelDebug,
 	}))
+	
+	// グローバルなデフォルトロガーも設定
+	slog.SetDefault(logger)
 
 	return &Replacer{
 		config: config,
@@ -111,34 +114,7 @@ func (r *Replacer) ReplaceString(text string) *ReplaceResult {
 		}
 
 		before := workingText
-		var after string
-
-		if rule.compiledIgnoreBefore != nil {
-			var sb strings.Builder
-			lastIndex := 0
-			matches := rule.compiledRegexp.FindAllStringIndex(before, -1)
-
-			for _, matchIndices := range matches {
-				startIndex := matchIndices[0]
-				endIndex := matchIndices[1]
-
-				sb.WriteString(before[lastIndex:startIndex])
-
-				contextBefore := before[:startIndex]
-
-				if rule.compiledIgnoreBefore.MatchString(contextBefore) {
-					sb.WriteString(before[startIndex:endIndex])
-				} else {
-					replaced := rule.compiledRegexp.ReplaceAllString(before[startIndex:endIndex], rule.Expected)
-					sb.WriteString(replaced)
-				}
-				lastIndex = endIndex
-			}
-			sb.WriteString(before[lastIndex:])
-			after = sb.String()
-		} else {
-			after = rule.ReplaceString(workingText)
-		}
+		after := rule.ReplaceString(workingText)
 
 		if before != after {
 			workingText = after

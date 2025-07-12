@@ -86,9 +86,13 @@ func (r *Rule) CompilePattern() error {
 
 	if r.IgnorePatternBefore != "" {
 		ignorePattern := r.IgnorePatternBefore
-		if !strings.HasSuffix(ignorePattern, "$") {
+		
+		// パターンが既に$で終わっている場合や、$を含む複雑なパターンの場合は追加しない
+		// また、( |$)のような選択パターンを含む場合も追加しない
+		if !strings.HasSuffix(ignorePattern, "$") && !strings.Contains(ignorePattern, "$") && !strings.Contains(ignorePattern, "|") {
 			ignorePattern += "$"
 		}
+		
 		compiledIgnore, err := regexp.Compile(ignorePattern)
 		if err != nil {
 			return fmt.Errorf("failed to compile ignorePatternBefore %q: %w", r.IgnorePatternBefore, err)
@@ -190,6 +194,35 @@ func (r *Rule) Replace(reader io.Reader) (string, error) {
 func (r *Rule) ReplaceString(text string) string {
 	if r.compiledRegexp == nil {
 		return text
+	}
+	
+	// ignorePatternBeforeが設定されている場合の処理
+	if r.compiledIgnoreBefore != nil {
+		var sb strings.Builder
+		lastIndex := 0
+		matches := r.compiledRegexp.FindAllStringIndex(text, -1)
+
+		for _, matchIndices := range matches {
+			startIndex := matchIndices[0]
+			endIndex := matchIndices[1]
+
+			sb.WriteString(text[lastIndex:startIndex])
+
+			contextBefore := text[:startIndex]
+
+			shouldIgnore := r.compiledIgnoreBefore.MatchString(contextBefore)
+
+			if shouldIgnore {
+				sb.WriteString(text[startIndex:endIndex])
+			} else {
+				sb.WriteString(r.Expected)
+			}
+			lastIndex = endIndex
+		}
+		sb.WriteString(text[lastIndex:])
+		result := sb.String()
+		
+		return result
 	}
 	
 	return r.compiledRegexp.ReplaceAllString(text, r.Expected)
